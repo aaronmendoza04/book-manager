@@ -1,0 +1,7 @@
+{
+  "name": "book-manager",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "vue-vite"
+}
