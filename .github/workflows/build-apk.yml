@@ -107,10 +107,9 @@ jobs:
       # ----------------------------------------------------------
       # 11. Rename the generated APK
       # ----------------------------------------------------------
-      - name: Rename to PhotoGallery.apk
+      - name: Rename APK
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk PhotoGallery.apk
-
+          cp android/app/build/outputs/apk/debug/app-debug.apk Book-Collection-Manager.apk
 
       # ----------------------------------------------------------
       # 12. Upload APK to GitHub Actions
