@@ -73,7 +73,6 @@ import {
   IonSelect, IonSelectOption, IonToggle 
 } from '@ionic/vue';
 import { db } from '@/firebase';
-// NEW: Imported `update` and `remove` from Firebase
 import { ref as dbRef, push, onValue, update, remove } from 'firebase/database';
 
 // 1. Data containers
