@@ -31,7 +31,12 @@
             <ion-toggle v-model="book.isAvailable" color="success">Available in Library</ion-toggle>
           </ion-item>
           
-          <button class="minimal-btn" @click="saveBook">Commit Record</button>
+          <div class="form-actions">
+            <button class="minimal-btn" @click="saveBook">
+              {{ editingId ? 'Update Record' : 'Commit Record' }}
+            </button>
+            <button v-if="editingId" class="minimal-btn cancel-btn" @click="cancelEdit">Cancel</button>
+          </div>
         </div>
 
         <h2 class="stoic-subtitle">Archive.</h2>
@@ -42,6 +47,12 @@
             <h3 class="book-title">{{ b.title }}</h3>
             <p class="book-author">{{ b.author }}</p>
             <p class="book-meta">{{ b.category }} — {{ b.year }}</p>
+            
+            <!-- NEW: Update and Delete Buttons -->
+            <div class="action-buttons">
+              <button class="text-btn edit-btn" @click="prepareEdit(b)">Edit</button>
+              <button class="text-btn delete-btn" @click="deleteBook(b.id)">Delete</button>
+            </div>
           </div>
           
           <div class="book-status">
@@ -62,9 +73,10 @@ import {
   IonSelect, IonSelectOption, IonToggle 
 } from '@ionic/vue';
 import { db } from '@/firebase';
-import { ref as dbRef, push, onValue } from 'firebase/database';
+// NEW: Imported `update` and `remove` from Firebase
+import { ref as dbRef, push, onValue, update, remove } from 'firebase/database';
 
-// 1. Data container: Holds the current inputs from the form
+// 1. Data containers
 const book = ref({
   title: '',
   author: '',
@@ -73,37 +85,66 @@ const book = ref({
   isAvailable: true
 });
 
-// 2. List container: Holds the array of books fetched from Firebase
 const bookList = ref<any[]>([]);
 
-// 3. Load Function: Runs automatically when the app opens
+// NEW: Tracks if we are editing an existing book instead of making a new one
+const editingId = ref<string | null>(null);
+
+// 2. READ: Load Function
 onMounted(() => {
   const dbConnection = dbRef(db, 'books');
-  
   onValue(dbConnection, (snapshot) => {
     const rawData = snapshot.val();
     if (rawData) {
-      // Converts the Firebase object into an array and reverses it (newest first)
       bookList.value = Object.keys(rawData).map(key => ({
         id: key,
         ...rawData[key]
       })).reverse();
     } else {
-      bookList.value = []; // Empty state if database is clear
+      bookList.value = []; 
     }
   });
 });
 
-// 4. Save Function: Pushes the new record to the cloud and clears the form
+// 3. CREATE & UPDATE: Save Function
 const saveBook = async () => {
-  // Prevent saving if title or author is empty
   if (!book.value.title || !book.value.author) return;
   
-  const dbConnection = dbRef(db, 'books');
-  await push(dbConnection, book.value);
+  if (editingId.value) {
+    // UPDATE LOGIC: Overwrite the existing record in Firebase
+    const specificBookRef = dbRef(db, `books/${editingId.value}`);
+    await update(specificBookRef, book.value);
+  } else {
+    // CREATE LOGIC: Push a brand new record to Firebase
+    const dbConnection = dbRef(db, 'books');
+    await push(dbConnection, book.value);
+  }
   
-  // Reset the form back to default
+  cancelEdit(); // Reset the form after saving
+};
+
+// 4. UPDATE SETUP: Puts the selected book's data back into the form
+const prepareEdit = (b: any) => {
+  book.value = { 
+    title: b.title, 
+    author: b.author, 
+    category: b.category, 
+    year: b.year, 
+    isAvailable: b.isAvailable 
+  };
+  editingId.value = b.id; // Tell the app we are in edit mode
+};
+
+// Cancels the edit and clears the form
+const cancelEdit = () => {
   book.value = { title: '', author: '', category: '', year: '', isAvailable: true };
+  editingId.value = null;
+};
+
+// 5. DELETE: Removes the specific book from Firebase
+const deleteBook = async (id: string) => {
+  const specificBookRef = dbRef(db, `books/${id}`);
+  await remove(specificBookRef);
 };
 </script>
 
@@ -161,9 +202,14 @@ ion-input, ion-select {
   color: #ccd6f6;
 }
 
-/* Custom Minimalist Button */
+/* Custom Minimalist Buttons */
+.form-actions {
+  display: flex;
+  gap: 12px;
+}
+
 .minimal-btn {
-  width: 100%;
+  flex: 1;
   padding: 16px;
   margin-top: 24px;
   background: rgba(100, 255, 218, 0.1);
@@ -180,6 +226,16 @@ ion-input, ion-select {
 
 .minimal-btn:active {
   background: rgba(100, 255, 218, 0.2);
+}
+
+.cancel-btn {
+  background: rgba(240, 62, 62, 0.05);
+  color: #f03e3e;
+  border: 1px solid rgba(240, 62, 62, 0.2);
+}
+
+.cancel-btn:active {
+  background: rgba(240, 62, 62, 0.1);
 }
 
 /* List Layout */
@@ -207,6 +263,34 @@ ion-input, ion-select {
   margin: 0;
   font-size: 12px;
   color: #64ffda;
+}
+
+/* Action Buttons (Edit/Delete) */
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.text-btn {
+  background: transparent;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.edit-btn {
+  color: #8892b0;
+  border: 1px solid rgba(136, 146, 176, 0.3);
+}
+
+.delete-btn {
+  color: #f03e3e;
+  border: 1px solid rgba(240, 62, 62, 0.3);
 }
 
 /* Availability Status Indicator */
